@@ -1,7 +1,5 @@
 # Giraffe-and-Horse-tracking-and-classification
 
-# Проект: Классификация объектов в видео
-
 ## Описание
 
 Цель проекта:
