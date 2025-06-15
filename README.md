@@ -1,46 +1,53 @@
-# Giraffe-and-Horse-tracking-and-classification
+# Giraffe & Horse Tracking & Classification  
+End-to-end pipeline that trains an EfficientNet-B0 classifier, extracts a static background, tracks every moving blob, classifies every track as *giraffe*, *horse* or *noise*, and exports an annotated video.
 
-## Описание
+A second training stage (fine‑tuning) specifically improves the noise class by re‑training on real false‑positive crops collected after the first pass.
 
-Цель проекта:
+---
 
-- Обучение нейронной сети для классификации объектов по классам: "жираф", "лошадь", "шум".
-- Анализ видео со стационарной камеры для определения движущихся объектов.
-- Автоматическое улучшение видимости объектов, добавление подписей с вероятностями и создание итогового видео.
+## 1 · Key Features
+| Stage | What Happens | Relevant Script |
+|-------|--------------|-----------------|
+| **Training** | Supervised training from scratch on a three-class image folder. | `train.py` :contentReference[oaicite:0]{index=0} |
+| **Background extraction** | Builds a clean static background (median over frames) from the raw video. | `back.py` :contentReference[oaicite:2]{index=2} |
+| **Tracking + classification** | Background subtraction• Centroid tracker• EfficientNet inference every 1‑2 s. Brightness/contrast boost & label overlay. Stores false‑positives to misclassified/noise/ | `tracking.py` :contentReference[oaicite:1]{index=1} |
+| **Fine-tuning for noise** | Adds the collected misclassified/noise/ crops to the noise folder and runs a short additional training to sharpen the decision boundary. | `train_finetine.py` :contentReference[oaicite:1]{index=1} |
+| **Final inference** | Re‑run tracking.py with the fine‑tuned weights → output.mp4. | `tracking.py` :contentReference[oaicite:1]{index=1} |
 
-## Этапы реализации
+---
 
-### 1. Обучение нейронной сети
+## 2 · Quick Start
 
-- Обучение модели на трех классах: два класса животных и класс "шум".
-- Датасет содержит более 1000 изображений для каждого класса.
+# 1.  Set up Python ≥3.9 and install core deps
+python -m venv venv && source venv/bin/activate
+pip install torch torchvision opencv-python numpy
 
-### 2. Обнаружение движущихся объектов
+# 2.  Organise data
+dataset/
+├── giraffe/   *.jpg
+├── horse/     *.jpg
+└── noise/     *.jpg
 
-- Используется видео со стационарной камеры, где присутствуют объекты заданных классов.
-- Алгоритм:
-  - Вычитание фона для выделения движущихся объектов.
-  - Построение треков объектов.
+# 3.  Train baseline model (adjust flags as needed)
+python train.py \
+    --data_dir dataset \
+    --output_model_path model_efficientnet_updated.pth \
+    --num_epochs 15 --batch_size 32 --lr 1e-3
+    
+# 4 · Extract static background
+python back.py  # edit video path inside
 
-### 3. Построение фона
+# 5 · Run tracking/classification & harvest misclassifications
+python tracking.py
+    
+# 5.  (Optional) fine-tune on a different set
+python train_finetine.py \
+    --data_dir finetune_dataset \
+    --pretrained_model_path model_efficientnet_updated.pth
 
-- Создание статического фона из среднего значения пикселей нескольких кадров.
-- Используется для эффективного обнаружения движущихся объектов.
+# 7 · Produce final annotated video
+python tracking.py \
+    --model_path model_ft_noise.pth \
+    --output_video output.mp4
 
-### 4. Классификация объектов
-
-- Объекты, определенные по разнице с фоном, анализируются каждые 1-2 секунды.
-- Каждый объект классифицируется с использованием обученной модели, которая возвращает класс и вероятность.
-
-### 5. Улучшение видимости объектов
-
-- Для каждого движущегося объекта:
-  - Коррекция яркости и контраста кадра.
-  - Наложение подписи с названием класса и вероятностью.
-- Обработанные кадры сохраняются.
-
-### 6. Создание итогового видео
-
-- Все улучшенные кадры объединяются в видео.
-- Итоговое видео демонстрирует улучшенные объекты, их классификацию и вероятности принадлежности.
 
